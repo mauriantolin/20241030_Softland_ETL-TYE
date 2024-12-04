@@ -9,7 +9,6 @@ Este documento describe el proceso de Extracción, Transformación y Carga (ETL)
 Antes de comenzar, asegúrate de tener instalados los siguientes componentes:
 
 - Python 3.x
-- Dependencias de Python (instaladas mediante `pip install -r requirements.txt`)
 - Acceso a la base de datos de SQL Server
 - Archivo `.env` configurado con las siguientes variables:
   - `PATH_LOG`: Ruta donde se guardarán los logs.
