@@ -41,7 +41,7 @@ class Logger:
 
 
 class Connection:
-    def __init__(self, server, database, username, password, driver='{ODBC Driver 17 for SQL Server}', timeout=60):
+    def __init__(self, server, database, username, password, driver='{ODBC Driver 17 for SQL Server}', timeout=1800):
         self.server = server
         self.database = database
         self.username = username
@@ -54,14 +54,14 @@ class Connection:
         conn_str = (
             f'DSN={self.database};'
             f'UID={self.username};'
-            f'PWD={self.password};'
-            f'QueryTimeout={self.timeout};'
-            f'ConnectionTimeout={self.timeout}'
+            f'PWD={self.password}'
         )
         try:
             conn = pyodbc.connect(conn_str)
-            conn.timeout = self.timeout
-            conn.execute("SET COMMAND_TIMEOUT = ?", self.timeout)
+            conn.execute("SET LOCK_TIMEOUT {}".format(self.timeout * 1000))
+            conn.execute("SET QUERY_GOVERNOR_COST_LIMIT {}".format(self.timeout))
+            conn.execute("SET NOCOUNT ON")
+            conn.execute("SET ARITHABORT ON")
             print(f"Conexión exitosa a {self.database}.")
             return conn
         except Exception as e:
@@ -71,14 +71,9 @@ class Connection:
     def run_query(self, query, return_data=True):
         with self.connection.cursor() as cursor:
             try:
-                cursor.execute("SET NOCOUNT ON")
-                cursor.execute("SET ARITHABORT ON")
-                cursor.timeout = self.timeout
                 cursor.execute(query.replace("\n", " "))
-                
                 while cursor.nextset():
                     pass
-                    
                 if return_data:
                     return cursor.fetchall()
                 else:
@@ -95,7 +90,7 @@ class Connection:
         self.connection.close()
 
 def main():
-    env_path = os.path.join(os.path.dirname(sys.executable), '.env')
+    env_path = os.path.join(os.path.dirname(__file__), '..\env\Akapol\.env_dia')
     load_dotenv(env_path)
 
     path_log = os.getenv('PATH_LOG')

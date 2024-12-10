@@ -99,7 +99,7 @@ class Connection:
         self.connection.close()
 
 def main():
-    env_path = os.path.join(os.path.dirname(sys.executable), '.env')
+    env_path = os.path.join(os.path.dirname(__file__), '..\env\Akapol\.env_dia')
     load_dotenv(env_path)
     
     path_log = os.getenv('PATH_LOG')
