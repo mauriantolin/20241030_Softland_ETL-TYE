@@ -50,26 +50,34 @@ class Script:
             logging.error(f"Error al ejecutar el script {self.path}: {e}")
         
 class Connection:
-    def __init__(self, server, database, username, password, driver='{ODBC Driver 17 for SQL Server}'):
+    def __init__(self, server, database, username, password, driver='{ODBC Driver 17 for SQL Server}', timeout=1200):
         self.server = server
         self.database = database
         self.username = username
         self.password = password
         self.driver = driver
+        self.timeout = timeout
         self.connection = self.connect()
 
     def connect(self):
-        conn_str = f'DSN={self.database};UID={self.username};PWD={self.password}'
-        #conn_str = f'SERVER={self.server};DATABASE={self.database};UID={self.username};PWD={self.password};DRIVER={self.driver}'
+        conn_str = (
+            f'DSN={self.database};'
+            f'UID={self.username};'
+            f'PWD={self.password}'
+        )
         try:
             conn = pyodbc.connect(conn_str)
+            conn.execute("SET LOCK_TIMEOUT {}".format(self.timeout * 1000))
+            conn.execute("SET QUERY_GOVERNOR_COST_LIMIT {}".format(self.timeout))
+            conn.execute("SET NOCOUNT ON")
+            conn.execute("SET ARITHABORT ON")
             print(f"Conexión exitosa a {self.database}.")
             return conn
         except Exception as e:
             print(f"Error al conectar a SQL Server: {e}")
             raise
 
-    def run_query(self, query, return_data=True, time=0):
+    def run_query(self, query, return_data=True):
         with self.connection.cursor() as cursor:
             try:
                 cursor.execute(query.replace("\n", " "))
@@ -81,9 +89,10 @@ class Connection:
                     self.connection.commit()
             except Exception as e:
                 self.connection.rollback()
-        
+                raise
+    
     def raise_email_error(self, message, subject="Error"):
-        query = f"""EXEC AKAPOLSA.DBO.SP_GR_PRO_MAIL @CODPER = 'ENVTYE', @DIREML = '', @DIRECC = '', @DIRCCO = '', @VARIABLES = '<ERROR>|{message.replace("'", " ")}#<ASUNTO>|{subject}', @ADJUNTOS = ''"""
+        query = f"""EXEC {self.database}.DBO.SP_GR_PRO_MAIL @CODPER = 'ENVTYE', @DIREML = '', @DIRECC = '', @DIRCCO = '', @VARIABLES = '<ERROR>|{message.replace("'", " ")}#<ASUNTO>|{subject}', @ADJUNTOS = ''"""
         self.run_query(query, False)
     
     def close(self):
@@ -101,7 +110,7 @@ def main():
     server = os.getenv('SERVER')
     username = os.getenv('USER')
     password = os.getenv('PASSWORD')
-    connection = Connection(server, base, username, password)
+    connection = Connection(server, base, username, password, timeout=1200)
 
     try:
         connection.run_query(f"EXEC SP_CO_PRO_RENDICIONES_TYE", return_data=False)
