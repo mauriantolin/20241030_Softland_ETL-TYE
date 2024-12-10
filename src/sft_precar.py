@@ -51,32 +51,44 @@ class Connection:
         self.connection = self.connect()
 
     def connect(self):
-        conn_str = f'DSN={self.database};UID={self.username};PWD={self.password}'
-        #conn_str = f'SERVER={self.server};DATABASE={self.database};UID={self.username};PWD={self.password};DRIVER={self.driver}'
+        conn_str = (
+            f'DSN={self.database};'
+            f'UID={self.username};'
+            f'PWD={self.password};'
+            f'QueryTimeout={self.timeout};'
+            f'ConnectionTimeout={self.timeout}'
+        )
         try:
             conn = pyodbc.connect(conn_str)
             conn.timeout = self.timeout
+            conn.execute("SET COMMAND_TIMEOUT = ?", self.timeout)
             print(f"Conexión exitosa a {self.database}.")
             return conn
         except Exception as e:
-            logging.error(f"Error al conectar a SQL Server: {e}")
+            print(f"Error al conectar a SQL Server: {e}")
             raise
 
     def run_query(self, query, return_data=True):
         with self.connection.cursor() as cursor:
             try:
+                cursor.execute("SET NOCOUNT ON")
+                cursor.execute("SET ARITHABORT ON")
+                cursor.timeout = self.timeout
                 cursor.execute(query.replace("\n", " "))
+                
                 while cursor.nextset():
                     pass
+                    
                 if return_data:
                     return cursor.fetchall()
                 else:
                     self.connection.commit()
             except Exception as e:
                 self.connection.rollback()
-                
+                raise
+    
     def raise_email_error(self, message, subject="Error"):
-        query = f"""EXEC AKAPOLSA.DBO.SP_GR_PRO_MAIL @CODPER = 'ENVTYE', @DIREML = '', @DIRECC = '', @DIRCCO = '', @VARIABLES = '<ERROR>|{message.replace("'", " ")}#<ASUNTO>|{subject}', @ADJUNTOS = ''"""
+        query = f"""EXEC {self.database}.DBO.SP_GR_PRO_MAIL @CODPER = 'ENVTYE', @DIREML = '', @DIRECC = '', @DIRCCO = '', @VARIABLES = '<ERROR>|{message.replace("'", " ")}#<ASUNTO>|{subject}', @ADJUNTOS = ''"""
         self.run_query(query, False)
     
     def close(self):
@@ -94,7 +106,7 @@ def main():
     server = os.getenv('SERVER')
     username = os.getenv('USER')
     password = os.getenv('PASSWORD')
-    connection = Connection(server, base, username, password)
+    connection = Connection(server, base, username, password, timeout=1800)
 
     try:
         connection.run_query(f"EXEC SP_CO_GEN_PRECARGAS_TYE", return_data=False)
