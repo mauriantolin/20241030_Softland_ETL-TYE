@@ -398,19 +398,19 @@ class Inserter:
             logging.info(f"|___Registro I - {expense.nrotye} insertado: {1}")
             self.__costcenter_insert(report, expense)
 
-    def advance_update(self, advance_numbers):
+    def advance_update(self, advance_numbers, nrotye):
         """Updates multiple cash advances with the report number they're associated with"""
         try:
             for advance_number in advance_numbers:
                 update_query = f"""
                     EXEC SP_CO_REND_UPDATE_ANTICI 
-                        @NROANT = {advance_number},
-                        @NROTYE = {self.report.nrotye}
+                        @NROANT = {advance_number}  
+                        , @NROTYE = {nrotye}
                 """
                 self.connection.run_query(update_query, False)
-                logging.info(f"|_Advance {advance_number} acutalizado para rendicion {self.report.nrotye}")
+                logging.info(f"|_Advance {advance_number} acutalizado para rendicion {nrotye}")
         except Exception as e:
-            logging.error(f"Error updating advances for report {self.report.nrotye}: {e}")
+            logging.error(f"Error updating advances for report {nrotye}: {e}")
             raise
 
     def report_insert(self):
@@ -439,7 +439,7 @@ class Inserter:
                 report.cursor.execute(report_query, False)
 
                 if report.advance_numbers:
-                    self.advance_update(report.advance_numbers)
+                    self.advance_update(report.advance_numbers, report.nrotye)
                     
                 logging.info(f"|_Registro H - {report.nrotye} insertado: {1}")
                 self.__expense_insert(report)
