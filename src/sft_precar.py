@@ -97,7 +97,7 @@ def main():
     log_name = os.getenv('LOG_NAME')
     logger = Logger(path_log, log_name)
 
-    base = os.getenv('BASE_AKAPOL')
+    base = os.getenv('BASE_PRODUCTIVA')
     server = os.getenv('SERVER')
     username = os.getenv('USER')
     password = os.getenv('PASSWORD')

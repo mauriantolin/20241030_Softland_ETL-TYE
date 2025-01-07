@@ -53,12 +53,13 @@ class Script:
             logging.error(f"Error al ejecutar el script {self.path}: {e}")
         
 class Connection:
-    def __init__(self, server, database, username, password, driver='{ODBC Driver 17 for SQL Server}'):
+    def __init__(self, server, database, username, password, base_prod, driver='{ODBC Driver 17 for SQL Server}'):
         self.server = server
         self.database = database
         self.username = username
         self.password = password
         self.driver = driver
+        self.base_prod = base_prod
         self.connection = self.connect()
 
     def connect(self):
@@ -84,7 +85,7 @@ class Connection:
                 self.connection.rollback()
 
     def raise_email_error(self, message, subject="Error"):
-        query = f"""EXEC AKAPOLSA.DBO.SP_GR_PRO_MAIL @CODPER = 'ENVTYE', @DIREML = '', @DIRECC = '', @DIRCCO = '', @VARIABLES = '<ERROR>|{message.replace("'", " ")}#<ASUNTO>|{subject}', @ADJUNTOS = ''"""
+        query = f"""EXEC {self.base_prod}.DBO.SP_GR_PRO_MAIL @CODPER = 'ENVTYE', @DIREML = '', @DIRECC = '', @DIRCCO = '', @VARIABLES = '<ERROR>|{message.replace("'", " ")}#<ASUNTO>|{subject}', @ADJUNTOS = ''"""
         self.run_query(query, False)
     
     def close(self):
@@ -175,7 +176,8 @@ def main():
     server = os.getenv('SERVER')
     username = os.getenv('USER')
     password = os.getenv('PASSWORD')
-    conn = Connection(server, base, username, password)
+    base_prod = os.getenv('BASE_PRODUCTIVA')
+    conn = Connection(server, base, username, password, base_prod)
     path_pdf = os.getenv('PATH_PDF')
 
     api_key = os.getenv('API_KEY')

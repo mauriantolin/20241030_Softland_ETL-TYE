@@ -77,12 +77,13 @@ class Cursor:
         self.cursor.close()
 
 class Connection:
-    def __init__(self, server, database, username, password, driver='{ODBC Driver 17 for SQL Server}'):
+    def __init__(self, server, database, username, password, base_prod, driver='{ODBC Driver 17 for SQL Server}'):
         self.server = server
         self.database = database
         self.username = username
         self.password = password
         self.driver = driver
+        self.base_prod = base_prod
         self.connection = self.connect()
 
     def connect(self):
@@ -105,7 +106,7 @@ class Connection:
                 self.connection.commit()
         
     def raise_email_error(self, message, subject="Error"):
-        query = f"""EXEC AKAPOLSA.DBO.SP_GR_PRO_MAIL @CODPER = 'ENVTYE', @DIREML = 'MAN@AKAPOL.COM', @DIRECC = '', @DIRCCO = '', @VARIABLES = '<ERROR>|{message.replace("'", " ")}#<ASUNTO>|{subject}', @ADJUNTOS = ''"""
+        query = f"""EXEC {self.base_prod}.DBO.SP_GR_PRO_MAIL @CODPER = 'ENVTYE', @DIREML = '', @DIRECC = '', @DIRCCO = '', @VARIABLES = '<ERROR>|{message.replace("'", " ")}#<ASUNTO>|{subject}', @ADJUNTOS = ''"""
         self.run_query(query, False)
     
     def close(self):
@@ -453,7 +454,8 @@ class Inserter:
                 #error
 
 class Notifier:
-    def __init__(self, nrotye, tipren, nrosft, importe, compag, noveda, ctacte, impant):
+    def __init__(self, company, nrotye, tipren, nrosft, importe, compag, noveda, ctacte, impant):
+        self.company = company
         self.nrotye = nrotye
         self.tipren = tipren
         self.nrosft = nrosft
@@ -485,7 +487,7 @@ class Notifier:
                             <tye:Type>{self.noveda + 1}</tye:Type>
                             <tye:Number>{self.nrotye}</tye:Number>
                             <tye:Document>
-                                <tye:Company>AKAPOL</tye:Company>
+                                <tye:Company>{self.company}</tye:Company>
                                 <tye:DocumentNumber>{self.noveda + 1}{self.tipren}{self.nrotye}</tye:DocumentNumber>
                                 <tye:FiscalYear>{datetime.date.today().year}</tye:FiscalYear>
                                 <tye:DocumentDate>{datetime.date.today().strftime("%Y%m%d")}</tye:DocumentDate>
@@ -499,13 +501,14 @@ class Notifier:
         return f"{self.nrotye} - {self.tipren} - {self.nrosft} - {self.importe} - {self.compag} - {self.noveda} - {self.ctacte}"
         
 class Updater:
-    def __init__(self, connection):
+    def __init__(self, connection, company):
         self.connection = connection
+        self.company = company
         self.reports = self.__get_update_reports()
 
     def __get_update_reports(self):
         reports = self.connection.run_query("EXEC SP_CO_REND_GET_UPDATE_CORRTH", True)
-        return [Notifier(*report) for report in reports]
+        return [Notifier(self.company, *report) for report in reports]
 
     def get_sender(self):
         data = ""
@@ -542,7 +545,8 @@ def main():
     server = os.getenv('SERVER')
     username = os.getenv('USER')
     password = os.getenv('PASSWORD')
-    connection = Connection(server, base, username, password)
+    base_prod = os.getenv('BASE_PRODUCTIVA')
+    connection = Connection(server, base, username, password, base_prod)
 
     api_key = os.getenv('API_KEY')
     url_tye = os.getenv('URL')
@@ -552,7 +556,8 @@ def main():
     inserter.cashadvance_insert()
     inserter.report_insert()
 
-    updater = Updater(connection)
+    company = os.getenv('COMPANY')
+    updater = Updater(connection, company)
     news = updater.get_sender()
     if news:
         status = web_service.send_soap_request(news)
@@ -571,7 +576,7 @@ def main():
 
     try: 
         script = Script(filename)
-        script.run()
+        #script.run()
     except Exception as e:
         print(f"Error al ejecutar el script {filename}: {e}")
 
